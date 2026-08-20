@@ -13,12 +13,15 @@
     "@livekit/components-react": "^2.9.16",
     "@livekit/components-styles": "^1.1.6",
     "livekit-client": "^2.15.7",
+    "livekit-server-sdk": "^2.14.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
+    "@vercel/node": "^5.10.1",
     "@vitejs/plugin-react": "^5.0.4",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
