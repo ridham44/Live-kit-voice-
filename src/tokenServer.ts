@@ -56,7 +56,7 @@ const server = createServer((req, res) => {
       });
       // Our worker registers with an explicit agentName (see ServerOptions in main.ts), which
       // means it is NOT auto-dispatched to every room — without this, the room connects fine
-      // but the agent never joins it, so nothing downstream (STT/LLM/knowledge) ever runs.
+      // but the agent never joins it, so nothing downstream (STT/LLM) ever runs.
       accessToken.roomConfig = new RoomConfiguration({
         agents: [new RoomAgentDispatch({ agentName: AGENT_NAME })],
       });

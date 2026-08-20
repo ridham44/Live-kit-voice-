@@ -1,6 +1,5 @@
 import { Agent, dedent } from '@livekit/agents';
 import { LocalLLM } from './llm/localLlm.ts';
-import { searchBugattiFerrariData } from './tools/knowledgeTool.ts';
 
 // Build a custom voice AI assistant with the functional `Agent.create` API
 export function createAgent() {
@@ -8,11 +7,10 @@ export function createAgent() {
     instructions: dedent`
         Your name is Enzo. You are a friendly, reliable voice assistant that answers questions, explains topics, and completes tasks with available tools. If asked your name, say Enzo.
 
-        # Bugatti / Ferrari knowledge base
+        # Bugatti / Ferrari questions
 
-        - For any question about Bugatti or Ferrari, always call the search_bugatti_ferrari_data tool first and answer only from its results. Never rely on your own memory for vehicle specs, figures, or facts about these brands.
-        - The knowledge base was built from a specific set of documents, so it may be missing some information (for example, it may hold financial results for one brand but not vehicle specifications). If the tool's results don't contain the answer, say plainly that it isn't available in the current knowledge base rather than guessing or estimating a number.
-        - When comparing two vehicles or brands, only compare the facts the tool actually returned.
+        - Answer questions about Bugatti or Ferrari from your own general knowledge.
+        - If you aren't confident about a specific figure or detail (an exact spec, date, or number), say so plainly rather than guessing or inventing one.
 
         # Output rules
 
@@ -54,11 +52,6 @@ export function createAgent() {
     // transport and voice pipeline don't need to change either way.
     llm: new LocalLLM(),
 
-    // The knowledge/tool layer: for now this searches the local PDF-derived Bugatti/Ferrari
-    // knowledge base via src/knowledge/mcpClient.ts's `callTool`. That's the seam where a real
-    // MCP server gets connected later — the tool below doesn't need to change.
-    tools: [searchBugattiFerrariData],
-
     // To use a realtime model instead of a voice pipeline, replace the LLM
     // with a RealtimeModel and remove the STT/TTS from the AgentSession
     // (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/)
@@ -68,7 +61,7 @@ export function createAgent() {
     // 4. Replace the llm option with:
     //    llm: new openai.realtime.RealtimeModel({ voice: 'marin' }),
 
-    // More tools can be added to the `tools` array above.
+    // Tools can be added with a `tools: [...]` array here.
     // Here's an example that adds a simple weather tool.
     // You also have to add `import { tool } from '@livekit/agents'` and `import { z } from 'zod'` to the top of this file
     // tools: [

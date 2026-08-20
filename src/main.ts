@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { createAgent } from './agent.ts';
 import { AGENT_NAME } from './agentName.ts';
-import { getKnowledgeChunks } from './knowledge/loadDocuments.ts';
 import { statusBus } from './status/statusBus.ts';
 
 // Load environment variables from a local file.
@@ -14,13 +13,6 @@ import { statusBus } from './status/statusBus.ts';
 dotenv.config({ path: '.env.local' });
 
 export default defineAgent({
-  // Runs once when the job process starts, before it's marked ready to take a job — the ideal
-  // place to pay PDF-parsing cost up front (or read the on-disk cache, near-instant after the
-  // first run) instead of on the first tool call mid-conversation, competing with live audio.
-  prewarm: async () => {
-    const chunks = await getKnowledgeChunks();
-    console.log(`[main] knowledge base ready: ${chunks.length} chunks`);
-  },
   entry: async (ctx) => {
     // Set up a voice AI pipeline using AssemblyAI, Fish Audio, and the LiveKit turn detector
     const session = new voice.AgentSession({
@@ -29,6 +21,17 @@ export default defineAgent({
       stt: new inference.STT({
         model: 'assemblyai/universal-3-5-pro',
         language: 'en',
+        modelOptions: {
+          // 'balanced' (the default) trades speed for a bit more accuracy — 'min_latency'
+          // cuts the time before the first partial transcript and each revision after it,
+          // which is what "speech lags behind in the text box" actually comes down to.
+          mode: 'min_latency',
+          // Voice Focus suppresses background noise (fan hum, room echo, etc.) server-side,
+          // before it ever reaches the transcription model. 'far-field' fits a laptop/desktop
+          // mic (vs. 'near-field', meant for headsets/handsets held close to the mouth).
+          voice_focus: 'far-field',
+          voice_focus_threshold: 0.7,
+        },
       }),
 
       // Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
@@ -96,9 +99,9 @@ export default defineAgent({
     await ctx.connect();
     console.log(`[main] connected to LiveKit room "${ctx.room.name}"`);
 
-    // Forward local LLM / knowledge pipeline health to the frontend's status panel.
-    // This is the only place that knows about both LiveKit and the status bus — the LLM and
-    // knowledge modules stay unaware of LiveKit entirely (see src/status/statusBus.ts).
+    // Forward local LLM pipeline health to the frontend's status panel. This is the only place
+    // that knows about both LiveKit and the status bus — the LLM module stays unaware of
+    // LiveKit entirely (see src/status/statusBus.ts).
     const unsubscribeStatus = statusBus.onStatus((event) => {
       const participant = ctx.room.localParticipant;
       if (!participant) {
@@ -143,10 +146,10 @@ cli.runApp(
     agent: fileURLToPath(import.meta.url),
     agentName: AGENT_NAME,
     // Each job runs in its own forked Node process, which re-imports the full dependency tree
-    // (rtc-node's native bindings, openai, pdf-parse, etc). The SDK's 10s default is too tight
-    // on a cold start on this machine — jobs were being killed as "runner initialization timed
-    // out" before they ever finished loading, which is why the LLM/knowledge status never left
-    // "Waiting…". 60s gives it real headroom; it only affects one-time job startup latency.
+    // (rtc-node's native bindings, openai, etc). The SDK's 10s default is too tight on a cold
+    // start on this machine — jobs were being killed as "runner initialization timed out"
+    // before they ever finished loading. 60s gives it real headroom; it only affects one-time
+    // job startup latency.
     initializeProcessTimeout: 60_000,
   }),
 );

@@ -12,7 +12,7 @@ import {
 import { ConnectionState } from 'livekit-client';
 import { MicIcon, SendIcon, TrashIcon } from './icons.tsx';
 
-type PipelineStage = 'llm' | 'knowledge' | 'tts';
+type PipelineStage = 'llm';
 type Health = 'unknown' | 'ok' | 'error';
 
 interface TranscriptEntry {
@@ -51,8 +51,6 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
 
   const [pipelineHealth, setPipelineHealth] = useState<Record<PipelineStage, Health>>({
     llm: 'unknown',
-    knowledge: 'unknown',
-    tts: 'unknown',
   });
   const [clearedAt, setClearedAt] = useState(0);
   const [draft, setDraft] = useState('');
@@ -105,8 +103,16 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
   // Push-to-talk: the mic starts disabled (see App.tsx's <LiveKitRoom audio={false}>) so it isn't
   // picking up background noise between turns — that noise was previously enough to trigger false
   // VAD interruptions. The user explicitly starts/stops speaking with this button.
+  // When enabling, ask the browser for noise suppression directly on the captured audio (cheap,
+  // native to the OS/browser — unlike the on-device ML noise-cancellation model, which was
+  // disabled elsewhere for being too CPU-heavy on this hardware). This is on top of the STT
+  // provider's own server-side Voice Focus suppression (see src/main.ts).
   const handleToggleMic = useCallback(() => {
-    void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled, {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
   }, [localParticipant, isMicrophoneEnabled]);
 
   // Live captions: mirror the user's own in-progress transcript into the text box while they're
@@ -265,13 +271,6 @@ function StatusPanel({
         text={connectionStateLabel(connectionState)}
       />
       <StatusRow label="Local LLM" detail="AI Reasoning" health={pipelineHealth.llm} text={healthLabel(pipelineHealth.llm)} />
-      <StatusRow
-        label="Local Knowledge"
-        detail="Bugatti / Ferrari Data"
-        health={pipelineHealth.knowledge}
-        text={healthLabel(pipelineHealth.knowledge)}
-      />
-      <StatusRow label="MCP / Tools" detail="Data Access Layer" health="ok" text="Ready" />
     </div>
   );
 }
