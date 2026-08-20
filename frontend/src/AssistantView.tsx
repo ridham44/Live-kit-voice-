@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   BarVisualizer,
   RoomAudioRenderer,
+  useChat,
   useConnectionState,
   useDataChannel,
   useLocalParticipant,
@@ -9,6 +10,7 @@ import {
   useVoiceAssistant,
 } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
+import { MicIcon, SendIcon, TrashIcon } from './icons.tsx';
 
 type PipelineStage = 'llm' | 'knowledge' | 'tts';
 type Health = 'unknown' | 'ok' | 'error';
@@ -26,18 +28,26 @@ const STATE_LABELS: Record<string, string> = {
   'pre-connect-buffering': 'Connecting…',
   failed: 'Connection failed',
   initializing: 'Warming up…',
-  idle: 'Ask me about Bugatti or Ferrari',
+  idle: 'Ready',
   listening: 'Listening…',
   thinking: 'Thinking…',
   speaking: 'Speaking…',
 };
 
+const EXAMPLE_PROMPTS = [
+  'Tell me about the Bugatti Chiron.',
+  'What is the fastest Ferrari in the data?',
+  'Compare the Bugatti Chiron and the Centodieci.',
+  'Tell me something interesting about Bugatti.',
+];
+
 export function AssistantView({ onLeave }: { onLeave: () => void }) {
-  const { state: agentState, audioTrack, agent } = useVoiceAssistant();
+  const { state: agentState, audioTrack } = useVoiceAssistant();
   const connectionState = useConnectionState();
   const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
   const transcriptions = useTranscriptions();
   const { send: sendControlMessage } = useDataChannel();
+  const { chatMessages, send: sendChatMessage, isSending } = useChat();
 
   const [pipelineHealth, setPipelineHealth] = useState<Record<PipelineStage, Health>>({
     llm: 'unknown',
@@ -45,6 +55,7 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
     tts: 'unknown',
   });
   const [clearedAt, setClearedAt] = useState(0);
+  const [draft, setDraft] = useState('');
 
   const handlePipelineStatus = useCallback((msg: { payload: Uint8Array }) => {
     try {
@@ -63,18 +74,26 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
   useDataChannel('pipeline-status', handlePipelineStatus);
 
   const transcript = useMemo<TranscriptEntry[]>(() => {
-    return transcriptions
-      .filter((entry) => entry.streamInfo.timestamp > clearedAt)
-      .map((entry) => ({
-        id: entry.streamInfo.id,
-        role: (entry.participantInfo.identity === localParticipant.identity ? 'user' : 'assistant') as
-          | 'user'
-          | 'assistant',
-        text: entry.text,
-        timestamp: entry.streamInfo.timestamp,
-      }))
+    const spoken = transcriptions.map((entry) => ({
+      id: entry.streamInfo.id,
+      role: (entry.participantInfo.identity === localParticipant.identity ? 'user' : 'assistant') as
+        | 'user'
+        | 'assistant',
+      text: entry.text,
+      timestamp: entry.streamInfo.timestamp,
+    }));
+    const typed = chatMessages
+      .filter((message) => message.from?.identity === localParticipant.identity)
+      .map((message) => ({
+        id: `chat-${message.id}`,
+        role: 'user' as const,
+        text: message.message,
+        timestamp: message.timestamp,
+      }));
+    return [...spoken, ...typed]
+      .filter((entry) => entry.timestamp > clearedAt)
       .sort((a, b) => a.timestamp - b.timestamp);
-  }, [transcriptions, clearedAt, localParticipant.identity]);
+  }, [transcriptions, chatMessages, clearedAt, localParticipant.identity]);
 
   const handleStopSpeaking = useCallback(() => {
     void sendControlMessage(new TextEncoder().encode(JSON.stringify({ type: 'stop_speaking' })), {
@@ -87,57 +106,113 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
     void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   }, [localParticipant, isMicrophoneEnabled]);
 
+  const handleSendText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isSending) {
+        return;
+      }
+      void sendChatMessage(trimmed);
+      setDraft('');
+    },
+    [isSending, sendChatMessage],
+  );
+
+  const handleTextareaKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        handleSendText(draft);
+      }
+    },
+    [draft, handleSendText],
+  );
+
   const stateLabel = STATE_LABELS[agentState] ?? agentState;
+  const orbClassName = [
+    'orb-button',
+    agentState === 'listening' ? 'orb-button--listening' : '',
+    agentState === 'speaking' ? 'orb-button--speaking' : '',
+    isMicrophoneEnabled ? '' : 'orb-button--muted',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <div className="assistant">
+    <div className="main-grid">
       <RoomAudioRenderer />
 
-      <div className="assistant__stage">
+      <div className="voice-panel glass">
+        <div className="status-banner">
+          <span>
+            {stateLabel}
+            {isMicrophoneEnabled ? '' : ' · mic muted'}
+          </span>
+          {agentState === 'speaking' && (
+            <button type="button" className="status-banner__action" onClick={handleStopSpeaking}>
+              Stop
+            </button>
+          )}
+        </div>
+
+        <div className="voice-panel__stage">
+          <button
+            type="button"
+            className={orbClassName}
+            onClick={handleToggleMute}
+            aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+          >
+            <MicIcon />
+          </button>
+          <p className="voice-panel__state-label">{stateLabel}</p>
+          <p className="voice-panel__hint">Speak naturally, or type a question below.</p>
+        </div>
+
         <BarVisualizer state={agentState} track={audioTrack} barCount={7} className="assistant__visualizer" />
-        <p className="assistant__state-label" data-state={agentState}>
-          {stateLabel}
-        </p>
+
+        <div className="voice-panel__controls">
+          <button type="button" className="control-button" onClick={() => setClearedAt(Date.now())}>
+            Clear conversation
+          </button>
+          <button type="button" className="control-button control-button--danger" onClick={onLeave}>
+            Disconnect
+          </button>
+        </div>
+
+        <hr className="divider--dotted" />
+
+        <div className="text-input-row">
+          <label className="text-input-row__label" htmlFor="text-input">
+            Type a request (Enter to send)
+          </label>
+          <textarea
+            id="text-input"
+            rows={2}
+            placeholder='e.g. "What is the top speed of the Chiron?"'
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={handleTextareaKeyDown}
+          />
+          <div className="text-input-row__footer">
+            <span className="text-input-row__hint">Shift+Enter for a new line</span>
+            <button
+              type="button"
+              className="send-button"
+              onClick={() => handleSendText(draft)}
+              disabled={!draft.trim() || isSending}
+            >
+              <SendIcon />
+              Send
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="assistant__controls">
-        <button
-          type="button"
-          className={`control-button${isMicrophoneEnabled ? '' : ' control-button--active'}`}
-          onClick={handleToggleMute}
-        >
-          {isMicrophoneEnabled ? 'Mute' : 'Unmute'}
-        </button>
-        <button
-          type="button"
-          className="control-button"
-          onClick={handleStopSpeaking}
-          disabled={agentState !== 'speaking'}
-        >
-          Stop speaking
-        </button>
-        <button type="button" className="control-button" onClick={() => setClearedAt(Date.now())}>
-          Clear conversation
-        </button>
-        <button type="button" className="control-button control-button--danger" onClick={onLeave}>
-          Disconnect
-        </button>
-      </div>
+      <StatusPanel connectionState={connectionState} pipelineHealth={pipelineHealth} />
 
-      <div className="transcript">
-        {transcript.length === 0 ? (
-          <p className="transcript__empty">Ask about a Bugatti or Ferrari to get started.</p>
-        ) : (
-          transcript.map((entry) => (
-            <div key={entry.id} className={`transcript__entry transcript__entry--${entry.role}`}>
-              <span className="transcript__role">{entry.role === 'user' ? 'You' : 'Assistant'}</span>
-              <p className="transcript__text">{entry.text}</p>
-            </div>
-          ))
-        )}
-      </div>
+      <TranscriptPanel entries={transcript} onClear={() => setClearedAt(Date.now())} />
 
-      <StatusPanel connectionState={connectionState} pipelineHealth={pipelineHealth} agentConnected={Boolean(agent)} />
+      <ExamplePrompts onPick={handleSendText} />
     </div>
   );
 }
@@ -145,14 +220,13 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
 function StatusPanel({
   connectionState,
   pipelineHealth,
-  agentConnected,
 }: {
   connectionState: ConnectionState;
   pipelineHealth: Record<PipelineStage, Health>;
-  agentConnected: boolean;
 }) {
   return (
-    <div className="status-panel">
+    <div className="status-panel glass">
+      <p className="status-panel__header">Architecture status</p>
       <StatusRow
         label="LiveKit"
         detail="Realtime Voice Layer"
@@ -166,7 +240,7 @@ function StatusPanel({
         health={pipelineHealth.knowledge}
         text={healthLabel(pipelineHealth.knowledge)}
       />
-      <StatusRow label="MCP / Tools" detail="Data Access Layer" health={agentConnected ? 'ok' : 'unknown'} text="Ready" />
+      <StatusRow label="MCP / Tools" detail="Data Access Layer" health="ok" text="Ready" />
     </div>
   );
 }
@@ -174,12 +248,62 @@ function StatusPanel({
 function StatusRow({ label, detail, health, text }: { label: string; detail: string; health: Health; text: string }) {
   return (
     <div className="status-row">
+      <span className={`status-dot status-dot--${health}`} />
       <div className="status-row__labels">
         <span className="status-row__label">{label}</span>
         <span className="status-row__detail">{detail}</span>
       </div>
-      <span className={`status-dot status-dot--${health}`} />
       <span className="status-row__text">{text}</span>
+    </div>
+  );
+}
+
+function TranscriptPanel({ entries, onClear }: { entries: TranscriptEntry[]; onClear: () => void }) {
+  return (
+    <div className="transcript-panel glass">
+      <div className="transcript-panel__header">
+        <div>
+          <p className="transcript-panel__title">Conversation</p>
+          <p className="transcript-panel__subtitle">Your spoken or typed requests, and the assistant's replies.</p>
+        </div>
+        <div className="transcript-panel__actions">
+          <button type="button" className="icon-button" onClick={onClear} aria-label="Clear conversation">
+            <TrashIcon />
+          </button>
+        </div>
+      </div>
+      <div className="transcript">
+        {entries.length === 0 ? (
+          <p className="transcript__empty">Ask about a Bugatti or Ferrari to get started.</p>
+        ) : (
+          entries.map((entry) => (
+            <div key={entry.id} className={`transcript__row transcript__row--${entry.role}`}>
+              {entry.role === 'assistant' && <div className="transcript__avatar">AI</div>}
+              <div className="transcript__bubble">
+                <p className="transcript__text">{entry.text}</p>
+                <span className="transcript__time">
+                  {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
+  return (
+    <div className="examples">
+      <p className="examples__title">Try asking</p>
+      <div className="examples__list">
+        {EXAMPLE_PROMPTS.map((prompt) => (
+          <button key={prompt} type="button" className="example-chip" onClick={() => onPick(prompt)}>
+            {prompt}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

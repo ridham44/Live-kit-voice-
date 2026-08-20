@@ -4,6 +4,7 @@ import { RoomEvent } from '@livekit/rtc-node';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { createAgent } from './agent.ts';
+import { AGENT_NAME } from './agentName.ts';
 import { statusBus } from './status/statusBus.ts';
 
 // Load environment variables from a local file.
@@ -120,6 +121,6 @@ export default defineAgent({
 cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
-    agentName: 'my-agent',
+    agentName: AGENT_NAME,
   }),
 );

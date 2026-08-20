@@ -4,6 +4,7 @@ import type { DisconnectReason } from 'livekit-client';
 import { fetchConnectionDetails } from './api.ts';
 import type { ConnectionDetails } from './api.ts';
 import { AssistantView } from './AssistantView.tsx';
+import { MicIcon } from './icons.tsx';
 
 type Phase = 'idle' | 'connecting' | 'connected' | 'error';
 
@@ -50,24 +51,31 @@ export function App() {
   return (
     <div className="page">
       <header className="page__header">
-        <p className="page__eyebrow">LiveKit Voice AI Demo</p>
-        <h1 className="page__title">Bugatti × Ferrari Intelligence</h1>
-        {!inRoom && <p className="page__subtitle">Ask me about Bugatti or Ferrari</p>}
+        <div className="page__header-row">
+          <h1 className="page__title">Assistant</h1>
+          <span className="pill">
+            <span className={`pill__dot${inRoom ? ' pill__dot--ok' : ''}`} />
+            {inRoom ? 'Active' : phase === 'connecting' ? 'Connecting' : 'Idle'}
+          </span>
+          <span className="pill">Bugatti · Ferrari</span>
+          <span className="pill">Local LLM</span>
+        </div>
+        <p className="page__subtitle">Ask about Bugatti or Ferrari — by voice, or by typing below.</p>
       </header>
 
-      {!inRoom || !connectionDetails ? (
-        <div className="landing">
+      {!inRoom ? (
+        <div className="landing glass">
           <button
             type="button"
-            className="mic-button"
+            className="orb-button"
             onClick={handleConnect}
             disabled={phase === 'connecting'}
             aria-label="Start voice session"
           >
-            {phase === 'connecting' ? '…' : '🎤'}
+            <MicIcon />
           </button>
           <p className="landing__hint">
-            {phase === 'connecting' ? 'Connecting to LiveKit…' : 'Tap the microphone to start talking'}
+            {phase === 'connecting' ? 'Connecting…' : 'Tap the mic to start a session'}
           </p>
           {errorMessage && <p className="landing__error">{errorMessage}</p>}
         </div>
@@ -80,18 +88,11 @@ export function App() {
           video={false}
           onDisconnected={handleDisconnected}
           onError={handleRoomError}
-          className="room"
+          style={{ width: '100%' }}
         >
           <AssistantView onLeave={handleLeave} />
         </LiveKitRoom>
       )}
-
-      <footer className="page__footer">
-        <span>LiveKit — Realtime Voice Layer</span>
-        <span>Local LLM — AI Reasoning</span>
-        <span>Local Knowledge — Bugatti/Ferrari Data</span>
-        <span>MCP / Tools — Data Access Layer</span>
-      </footer>
     </div>
   );
 }
