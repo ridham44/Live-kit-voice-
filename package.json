@@ -14,7 +14,8 @@
     "dev": "node src/main.ts dev",
     "start": "node src/main.ts start",
     "token-server": "node src/tokenServer.ts",
-    "demo": "concurrently -n token-server,agent,frontend -c blue,green,magenta \"pnpm run token-server\" \"pnpm run dev\" \"pnpm --filter frontend dev\""
+    "demo": "concurrently -n token-server,agent,frontend -c blue,green,magenta \"pnpm run token-server\" \"pnpm run dev\" \"pnpm --filter frontend dev\"",
+    "build": "pnpm --filter frontend build"
   },
   "engines": {
     "node": ">=24.0.0",
