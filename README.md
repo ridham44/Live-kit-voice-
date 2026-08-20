@@ -4,24 +4,36 @@
 
 # LiveKit Agents Starter - Node.js
 
-A complete starter project for building voice AI apps with [LiveKit Agents for Node.js](https://github.com/livekit/agents-js) and [LiveKit Cloud](https://cloud.livekit.io/).
+A complete starter project for building voice AI apps with [LiveKit Agents for Node.js](https://github.com/livekit/agents-js) and [LiveKit Cloud](https://cloud.livekit.io/), customized into **Enzo** — a voice assistant demo built to show one thing clearly: LiveKit handles realtime transport only, and the LLM behind it is an independent, swappable component.
 
-The starter project includes:
+What's included:
 
-- A simple voice AI assistant, ready for extension and customization
-- A voice AI pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference), providing zero-configuration access to [models](https://docs.livekit.io/agents/models) from top labs
-  - Uses the fast, open-weight Gemma 4 31B model, [hosted by LiveKit](https://docs.livekit.io/agents/models/llm/livekit/) and tuned for optimal performance in voice AI, as the default LLM
-  - Uses Fish Audio S2.1 Pro for TTS, which renders the inline delivery markup that expressive mode relies on
-  - Supports more than 50 models from OpenAI, Cartesia, Deepgram, and other providers
-  - Access to a wide range of other models, including [Realtime models](https://docs.livekit.io/agents/models/realtime), through extensive plugin ecosystem
+- **Enzo**, a voice assistant with push-to-talk mic control and live captions of what it hears
+- Speech-to-text (AssemblyAI Universal-3.5 Pro) and text-to-speech (Fish Audio S2.1 Pro) via [LiveKit Inference](https://docs.livekit.io/agents/models/inference) — zero-config, and swappable for any of the [50+ supported models](https://docs.livekit.io/agents/models)
+- A custom LLM adapter (`src/llm/localLlm.ts`) instead of LiveKit's hosted inference — any OpenAI-compatible chat completions endpoint can sit behind it. It's currently pointed at OpenRouter as a stand-in for a self-hosted/company LLM; see [Architecture](#architecture) for the exact swap point
 - Expressive mode, enabled by default: the framework injects the TTS provider's markup guide into the LLM prompt, so the model emits inline delivery tags (emotion, pacing, non-verbal sounds) that the TTS renders and the transcript never shows
+- [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/) with adaptive interruption tuned (`minWords: 2`, `minDuration: 600`) to avoid false triggers from background noise
+- A polished, glassmorphism React frontend (`frontend/`) with a voice orb, live transcript, and an architecture status panel — see [Frontend & Telephony](#frontend--telephony)
+- A minimal token-minting server (`src/tokenServer.ts`) the frontend uses to join LiveKit rooms
 - Eval suite based on the LiveKit Agents [testing & evaluation framework](https://docs.livekit.io/agents/start/testing)
-- [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/), an end-of-turn model that listens to the user's audio directly, combining semantic understanding with acoustic cues for state-of-the-art accuracy across 14 languages
-- [Background voice cancellation](https://docs.livekit.io/transport/media/noise-cancellation/)
-- Deep session insights from LiveKit [Agent Observability](https://docs.livekit.io/deploy/observability/)
 - A Dockerfile ready for [production deployment to LiveKit Cloud](https://docs.livekit.io/deploy/agents/)
 
-This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/frontends/) or [telephony](https://docs.livekit.io/telephony/).
+[Background voice cancellation](https://docs.livekit.io/transport/media/noise-cancellation/) is wired into `src/main.ts` but commented out by default: it runs a second on-device ML model on every audio frame, which was too CPU-heavy alongside the turn detector on constrained hardware. Re-enable it (see the comment at that spot in `src/main.ts`) if you're running on a machine with more headroom.
+
+## Architecture
+
+LiveKit only handles realtime transport — audio, the room/session, and interruption/barge-in. Everything else is an independently swappable piece:
+
+| Layer          | Where                              | Notes                                                                                                                                                       |
+| -------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STT            | `src/main.ts` (`inference.STT`)    | AssemblyAI Universal-3.5 Pro, tuned for low latency (`mode: 'min_latency'`) and background-noise suppression (`voice_focus: 'far-field'`)                   |
+| **LLM**        | `src/llm/localLlm.ts` (`LocalLLM`) | **The swap point.** Point `LOCAL_LLM_URL` (and `LOCAL_LLM_MODEL`) at your own self-hosted or company LLM server — nothing else in the agent needs to change |
+| TTS            | `src/main.ts` (`inference.TTS`)    | Fish Audio S2.1 Pro, with expressive mode enabled                                                                                                           |
+| Turn detection | `src/main.ts` (`turnHandling`)     | LiveKit's built-in audio turn detector + adaptive interruption                                                                                              |
+| Frontend       | `frontend/`                        | Vite + React app; status panel is driven by data messages the agent publishes via `src/status/statusBus.ts`                                                 |
+| Token server   | `src/tokenServer.ts`               | Minimal HTTP server the frontend calls to mint LiveKit room tokens                                                                                          |
+
+This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/frontends/) or [telephony](https://docs.livekit.io/telephony/), though this repo already ships with its own (see below).
 
 ## Using coding agents
 
@@ -60,59 +72,48 @@ The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants
 
 ## Dev Setup
 
-Create a project from this template with the LiveKit CLI (recommended):
-
-```bash
-lk cloud auth
-lk agent init my-agent --template agent-starter-node
-```
-
-The CLI clones the template and configures your environment. Then follow the rest of this guide from [Run the agent](#run-the-agent).
-
-This project uses [pnpm](https://pnpm.io/) as the package manager.
-
-<details>
-<summary>Alternative: Manual setup without the CLI</summary>
+This project uses [pnpm](https://pnpm.io/) as the package manager, in a workspace covering both the agent (repo root) and the frontend (`frontend/`).
 
 Clone the repository and install dependencies:
 
 ```console
-cd agent-starter-node
+git clone https://github.com/ridham44/Live-kit-voice-.git
+cd Live-kit-voice-
 pnpm install
 ```
 
-Sign up for [LiveKit Cloud](https://cloud.livekit.io/) then set up the environment by copying `.env.example` to `.env.local` and filling in the required keys:
+Sign up for [LiveKit Cloud](https://cloud.livekit.io/), then copy `.env.example` to `.env.local` at the repo root and fill in:
 
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
+- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` — from your LiveKit Cloud project settings, or load them automatically with the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/): `lk cloud auth && lk app env -w -d .env.local`
+- `LOCAL_LLM_URL` / `LOCAL_LLM_MODEL` — the OpenAI-compatible chat completions endpoint and model to use as the LLM (see [Architecture](#architecture))
+- `LOCAL_LLM_API_KEY` or `OPENROUTER_API_KEY` — whichever your endpoint needs; `OPENROUTER_API_KEY` is recognized directly when `LOCAL_LLM_URL` points at `https://openrouter.ai/api/v1`
+- `TOKEN_SERVER_PORT` — defaults to `8080`
 
-You can load the LiveKit environment automatically using the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/):
+Then copy `frontend/.env.example` to `frontend/.env.local` if the token server won't be running at the default `http://localhost:8080`.
 
-```bash
-lk cloud auth
-lk app env -w -d .env.local
-```
+## Running the agent
 
-</details>
-
-## Run the agent
-
-To run the agent during development, use the `dev` command:
+This repo has three processes: the token server, the voice agent, and the frontend. Run all three together with:
 
 ```console
-pnpm run dev
+pnpm run demo
 ```
 
-In production, use the `start` command:
+Or run them individually, each in its own terminal:
 
 ```console
-pnpm run start
+pnpm run token-server        # mints LiveKit room tokens for the frontend
+pnpm run dev                 # the voice agent, in development mode
+pnpm --filter frontend dev   # the React frontend, at http://localhost:5173
 ```
+
+In production, start the agent with `pnpm run start` instead of `pnpm run dev`.
 
 ## Frontend & Telephony
 
-Get started quickly with our pre-built frontend starter apps, or add telephony support:
+This repo already includes a web frontend at [`frontend/`](frontend/) — a Vite + React app with a push-to-talk mic, live captions, and an architecture status panel. Run it with `pnpm --filter frontend dev`, or as part of `pnpm run demo`.
+
+If you'd rather build your own frontend, or need a different platform, LiveKit also offers pre-built starter apps, or add telephony support:
 
 | Platform         | Link                                                                                                                | Description                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
@@ -125,14 +126,6 @@ Get started quickly with our pre-built frontend starter apps, or add telephony s
 | **Telephony**    | [Documentation](https://docs.livekit.io/telephony/)                                                                 | Add inbound or outbound calling to your agent      |
 
 For advanced customization, see the [complete frontend guide](https://docs.livekit.io/frontends/).
-
-## Using this template repo for your own project
-
-Once you've started your own project based on this repo, you should:
-
-1. **Check in your `pnpm-lock.yaml`**: This file is currently untracked for the template, but you should commit it to your repository for reproducible builds and proper configuration management. (The same applies to `livekit.toml`, if you run your agents in LiveKit Cloud)
-
-2. **Remove the git tracking test**: Delete the "Check files not tracked in git" step from `.github/workflows/tests.yml` since you'll now want this file to be tracked. These are just there for development purposes in the template repo itself.
 
 ## Deploying to production
 
