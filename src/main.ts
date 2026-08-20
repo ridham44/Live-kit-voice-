@@ -1,5 +1,5 @@
 import { ServerOptions, cli, defineAgent, inference, voice } from '@livekit/agents';
-import { audioEnhancement } from '@livekit/plugins-ai-coustics';
+// import { audioEnhancement } from '@livekit/plugins-ai-coustics'; // see noiseCancellation note below
 import { RoomEvent } from '@livekit/rtc-node';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
@@ -55,11 +55,14 @@ export default defineAgent({
     await session.start({
       agent: createAgent(),
       room: ctx.room,
-      inputOptions: {
-        // ai-coustics QUAIL audio enhancement for noise cancellation
-        // Works for both WebRTC and telephony (SIP) participants
-        noiseCancellation: audioEnhancement({ model: 'quailVfS' }),
-      },
+      // ai-coustics QUAIL noise cancellation is disabled here: it runs a second on-device ML
+      // model on every audio frame, on top of the turn-detector/VAD model the core pipeline
+      // already needs, and on a CPU-constrained machine that combined load was enough to make
+      // VAD fall multiple seconds behind realtime, corrupt STT transcripts, and eventually kill
+      // the job (the SDK's job-process "orphaned" watchdog is a hardcoded 15s, not configurable).
+      // Re-enable by importing audioEnhancement from '@livekit/plugins-ai-coustics' and passing
+      // `inputOptions: { noiseCancellation: audioEnhancement({ model: 'quailVfS' }) }` once
+      // running on hardware with more CPU headroom.
     });
 
     // // Add a virtual avatar to the session, if desired
