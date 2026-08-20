@@ -47,9 +47,17 @@ export default defineAgent({
         turnDetection: new inference.TurnDetector(),
         // Adaptive interruptions use the turn detector to tell a real interruption from a
         // backchannel like "mhm" or "right", so the agent keeps talking through the latter.
-        interruption: { mode: 'adaptive' },
-        // Allow the LLM to generate a response while waiting for the end of turn
-        preemptiveGeneration: { enabled: true },
+        // minWords/minDuration raised from the SDK defaults (0 words / 500ms) — on a mic picking
+        // up background noise, a zero-word VAD blip was enough to count as "the user is
+        // interrupting," which then chained into a runaway interrupt/regenerate loop. Requiring
+        // a couple of actually-recognized words filters that out.
+        interruption: { mode: 'adaptive', minWords: 2, minDuration: 600 },
+        // Preemptive generation speculatively starts an LLM call on every unstable partial
+        // transcript to shave latency off the eventual reply. Disabled: on noisy audio, STT kept
+        // revising its "final" transcript every hundred milliseconds, and each revision spawned
+        // a brand new speech handle + LLM call that immediately got aborted by the next one —
+        // the flood of `[local-llm] request ->` log lines with duplicate message counts. Waiting
+        // for one real end-of-turn per reply is slightly slower but far more stable.
       },
 
       // Expressive mode injects the TTS provider's markup guide into the LLM prompt, so the model
@@ -123,7 +131,8 @@ export default defineAgent({
 
     // Greet the user on joining
     session.generateReply({
-      instructions: 'Greet the user in a helpful and friendly manner.',
+      instructions:
+        'Greet the user in a helpful and friendly manner, introducing yourself as Enzo.',
     });
   },
 });

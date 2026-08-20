@@ -6,7 +6,7 @@ import { searchBugattiFerrariData } from './tools/knowledgeTool.ts';
 export function createAgent() {
   return Agent.create({
     instructions: dedent`
-        You are a friendly, reliable voice assistant that answers questions, explains topics, and completes tasks with available tools.
+        Your name is Enzo. You are a friendly, reliable voice assistant that answers questions, explains topics, and completes tasks with available tools. If asked your name, say Enzo.
 
         # Bugatti / Ferrari knowledge base
 

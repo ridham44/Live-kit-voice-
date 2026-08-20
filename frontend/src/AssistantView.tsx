@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarVisualizer,
   RoomAudioRenderer,
@@ -102,9 +102,37 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
     });
   }, [sendControlMessage]);
 
-  const handleToggleMute = useCallback(() => {
+  // Push-to-talk: the mic starts disabled (see App.tsx's <LiveKitRoom audio={false}>) so it isn't
+  // picking up background noise between turns — that noise was previously enough to trigger false
+  // VAD interruptions. The user explicitly starts/stops speaking with this button.
+  const handleToggleMic = useCallback(() => {
     void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   }, [localParticipant, isMicrophoneEnabled]);
+
+  // Live captions: mirror the user's own in-progress transcript into the text box while they're
+  // speaking, so they can see what's being heard. Only while the mic is on, so it never clobbers
+  // manual typing.
+  useEffect(() => {
+    if (!isMicrophoneEnabled) {
+      return;
+    }
+    const ownEntries = transcriptions.filter(
+      (entry) => entry.participantInfo.identity === localParticipant.identity,
+    );
+    if (ownEntries.length === 0) {
+      return;
+    }
+    const latest = ownEntries.reduce((a, b) => (a.streamInfo.timestamp > b.streamInfo.timestamp ? a : b));
+    setDraft(latest.text);
+  }, [transcriptions, isMicrophoneEnabled, localParticipant.identity]);
+
+  // Once the turn is handed off for a reply, clear the live caption — it's already in the
+  // conversation panel below.
+  useEffect(() => {
+    if (agentState === 'thinking' || agentState === 'speaking') {
+      setDraft('');
+    }
+  }, [agentState]);
 
   const handleSendText = useCallback(
     (text: string) => {
@@ -144,10 +172,7 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
 
       <div className="voice-panel glass">
         <div className="status-banner">
-          <span>
-            {stateLabel}
-            {isMicrophoneEnabled ? '' : ' · mic muted'}
-          </span>
+          <span>{isMicrophoneEnabled ? stateLabel : 'Mic off — tap to speak'}</span>
           {agentState === 'speaking' && (
             <button type="button" className="status-banner__action" onClick={handleStopSpeaking}>
               Stop
@@ -159,13 +184,19 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
           <button
             type="button"
             className={orbClassName}
-            onClick={handleToggleMute}
-            aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+            onClick={handleToggleMic}
+            aria-label={isMicrophoneEnabled ? 'Stop speaking' : 'Start speaking'}
           >
             <MicIcon />
           </button>
-          <p className="voice-panel__state-label">{stateLabel}</p>
-          <p className="voice-panel__hint">Speak naturally, or type a question below.</p>
+          <p className="voice-panel__state-label">
+            {isMicrophoneEnabled ? stateLabel : 'Tap to speak'}
+          </p>
+          <p className="voice-panel__hint">
+            {isMicrophoneEnabled
+              ? 'Tap the mic again when you’re done speaking.'
+              : 'Tap the mic to start speaking, or type a question below.'}
+          </p>
         </div>
 
         <BarVisualizer state={agentState} track={audioTrack} barCount={7} className="assistant__visualizer" />
@@ -183,7 +214,7 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
 
         <div className="text-input-row">
           <label className="text-input-row__label" htmlFor="text-input">
-            Type a request (Enter to send)
+            Type or speak a request (Enter to send)
           </label>
           <textarea
             id="text-input"
@@ -278,7 +309,7 @@ function TranscriptPanel({ entries, onClear }: { entries: TranscriptEntry[]; onC
         ) : (
           entries.map((entry) => (
             <div key={entry.id} className={`transcript__row transcript__row--${entry.role}`}>
-              {entry.role === 'assistant' && <div className="transcript__avatar">AI</div>}
+              {entry.role === 'assistant' && <div className="transcript__avatar">EN</div>}
               <div className="transcript__bubble">
                 <p className="transcript__text">{entry.text}</p>
                 <span className="transcript__time">

@@ -52,7 +52,7 @@ export function App() {
     <div className="page">
       <header className="page__header">
         <div className="page__header-row">
-          <h1 className="page__title">Assistant</h1>
+          <h1 className="page__title">Enzo</h1>
           <span className="pill">
             <span className={`pill__dot${inRoom ? ' pill__dot--ok' : ''}`} />
             {inRoom ? 'Active' : phase === 'connecting' ? 'Connecting' : 'Idle'}
@@ -60,7 +60,9 @@ export function App() {
           <span className="pill">Bugatti · Ferrari</span>
           <span className="pill">Local LLM</span>
         </div>
-        <p className="page__subtitle">Ask about Bugatti or Ferrari — by voice, or by typing below.</p>
+        <p className="page__subtitle">
+          Ask about Bugatti or Ferrari — press the mic to talk, or type below.
+        </p>
       </header>
 
       {!inRoom ? (
@@ -84,7 +86,7 @@ export function App() {
           serverUrl={connectionDetails.serverUrl}
           token={connectionDetails.participantToken}
           connect
-          audio
+          audio={false}
           video={false}
           onDisconnected={handleDisconnected}
           onError={handleRoomError}
