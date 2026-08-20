@@ -122,5 +122,11 @@ cli.runApp(
   new ServerOptions({
     agent: fileURLToPath(import.meta.url),
     agentName: AGENT_NAME,
+    // Each job runs in its own forked Node process, which re-imports the full dependency tree
+    // (rtc-node's native bindings, openai, pdf-parse, etc). The SDK's 10s default is too tight
+    // on a cold start on this machine — jobs were being killed as "runner initialization timed
+    // out" before they ever finished loading, which is why the LLM/knowledge status never left
+    // "Waiting…". 60s gives it real headroom; it only affects one-time job startup latency.
+    initializeProcessTimeout: 60_000,
   }),
 );
