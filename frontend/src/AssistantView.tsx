@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarVisualizer,
   RoomAudioRenderer,
@@ -114,6 +114,27 @@ export function AssistantView({ onLeave }: { onLeave: () => void }) {
       autoGainControl: true,
     });
   }, [localParticipant, isMicrophoneEnabled]);
+
+  // Warm up the microphone once, right after connecting, instead of waiting for the first tap
+  // of the mic button. setMicrophoneEnabled only pays the slow cost (browser permission prompt +
+  // getUserMedia) when no track exists yet — every call after that just mutes/unmutes the
+  // existing track, which is near-instant. Doing the slow part here, while the user is still
+  // looking at the just-connected screen, means the button itself never has to wait for it.
+  const hasWarmedMicRef = useRef(false);
+  useEffect(() => {
+    if (hasWarmedMicRef.current) {
+      return;
+    }
+    hasWarmedMicRef.current = true;
+    localParticipant
+      .setMicrophoneEnabled(true, {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      })
+      .then(() => localParticipant.setMicrophoneEnabled(false))
+      .catch((error: unknown) => console.error('[assistant] failed to warm up microphone:', error));
+  }, [localParticipant]);
 
   // Live captions: mirror the user's own in-progress transcript into the text box while they're
   // speaking, so they can see what's being heard. Only while the mic is on, so it never clobbers
