@@ -18,20 +18,16 @@ export default defineAgent({
     const session = new voice.AgentSession({
       // Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
       // See all available models at https://docs.livekit.io/agents/models/stt/
+      // 'universal-3-5-pro' auto-detects the spoken language and code-switches between them —
+      // that's the built-in behavior that kept producing Hindi/Chinese transcripts even with
+      // language: 'en' set, since that setting doesn't turn code-switching off. 'universal-streaming'
+      // only supports English at all, so it structurally can't output another language, and it's
+      // AssemblyAI's low-latency streaming model (vs. 'pro', which trades some speed for accuracy
+      // and extra features) — LiveKit Inference already tunes its end-of-turn confidence threshold
+      // low for latency, so no extra modelOptions are needed here.
       stt: new inference.STT({
-        model: 'assemblyai/universal-3-5-pro',
+        model: 'assemblyai/universal-streaming',
         language: 'en',
-        modelOptions: {
-          // 'balanced' (the default) trades speed for a bit more accuracy — 'min_latency'
-          // cuts the time before the first partial transcript and each revision after it,
-          // which is what "speech lags behind in the text box" actually comes down to.
-          mode: 'min_latency',
-          // Voice Focus suppresses background noise (fan hum, room echo, etc.) server-side,
-          // before it ever reaches the transcription model. 'far-field' fits a laptop/desktop
-          // mic (vs. 'near-field', meant for headsets/handsets held close to the mouth).
-          voice_focus: 'far-field',
-          voice_focus_threshold: 0.7,
-        },
       }),
 
       // Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
