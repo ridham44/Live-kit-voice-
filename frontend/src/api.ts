@@ -5,14 +5,11 @@ export interface ConnectionDetails {
   participantName: string;
 }
 
-// In local dev, VITE_TOKEN_SERVER_URL points at the standalone server (src/tokenServer.ts,
-// `pnpm run token-server`). Left unset, this falls back to the same-origin serverless function
-// at frontend/api/connection-details.ts — the one Vercel deploys alongside this frontend, so a
-// publicly deployed site never depends on someone's local token server being reachable.
-const TOKEN_SERVER_URL = import.meta.env.VITE_TOKEN_SERVER_URL;
-const CONNECTION_DETAILS_URL = TOKEN_SERVER_URL
-  ? `${TOKEN_SERVER_URL}/connection-details`
-  : '/api/connection-details';
+// Always the same relative path in application code — in production this is Vercel's own
+// serverless function (frontend/api/connection-details.ts), same origin. In local dev, Vite's
+// dev server proxies this same path to the standalone token server (see vite.config.ts), so
+// there's no environment-specific URL to configure here.
+const CONNECTION_DETAILS_URL = '/api/connection-details';
 
 export async function fetchConnectionDetails(): Promise<ConnectionDetails> {
   const response = await fetch(CONNECTION_DETAILS_URL, { method: 'POST' });

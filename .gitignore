@@ -100,11 +100,9 @@ web_modules/
 
 # dotenv environment variable files
 
-.env
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 
@@ -191,7 +189,6 @@ security-audit.json
 audit-report.json
 
 # IDE and editor files
-.vscode/
 *.swp
 *.swo
 *~
@@ -223,3 +220,4 @@ ehthumbs.db
 
 # GitHub CLI
 .github/personal-instructions.md
+config.bat
