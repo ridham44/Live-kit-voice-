@@ -1,0 +1,9 @@
+packages:
+  - '.'
+  - 'frontend'
+
+allowBuilds:
+  '@livekit/local-inference': true
+  esbuild: true
+  protobufjs: true
+  sharp: true

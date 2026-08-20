@@ -1,0 +1,367 @@
+:root {
+  --bg: #0a0a0d;
+  --bg-elevated: #14141a;
+  --bg-card: #1a1a22;
+  --border: #2a2a35;
+  --text: #f2f1ef;
+  --text-dim: #9a99a6;
+  --text-faint: #62626e;
+  --accent-red: #d61a2c;
+  --accent-red-glow: rgba(214, 26, 44, 0.45);
+  --accent-blue: #3a6ea5;
+  --ok: #29c46a;
+  --error: #e5484d;
+  --unknown: #5a5a66;
+
+  --lk-fg: var(--accent-red);
+  --lk-va-bg: #26262f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 50% -10%, #1c1420 0%, var(--bg) 55%);
+  color: var(--text);
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+.page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1.5rem 1.5rem;
+  gap: 2rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.page__header {
+  text-align: center;
+}
+
+.page__eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.page__title {
+  margin: 0;
+  font-size: clamp(1.75rem, 5vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(120deg, #fff 30%, var(--accent-red) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.page__subtitle {
+  margin: 0.6rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 0;
+}
+
+.mic-button {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: radial-gradient(circle at 35% 30%, #232230, var(--bg-card));
+  color: var(--text);
+  font-size: 2.25rem;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.25s ease;
+  box-shadow: 0 0 0 0 var(--accent-red-glow);
+}
+
+.mic-button:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 0 32px 4px var(--accent-red-glow);
+}
+
+.mic-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.landing__hint {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.landing__error {
+  color: var(--error);
+  font-size: 0.85rem;
+  max-width: 32ch;
+  text-align: center;
+  margin: 0;
+}
+
+.room {
+  width: 100%;
+}
+
+.assistant {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.assistant__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.assistant__visualizer {
+  height: 72px;
+  width: min(100%, 320px);
+  --lk-va-bar-width: 6px;
+}
+
+.assistant__state-label {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.assistant__state-label[data-state='speaking'] {
+  color: var(--accent-red);
+}
+
+.assistant__state-label[data-state='listening'] {
+  color: var(--ok);
+}
+
+.assistant__controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.control-button {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.control-button:hover:not(:disabled) {
+  border-color: var(--accent-red);
+}
+
+.control-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.control-button--active {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.control-button--danger:hover:not(:disabled) {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.transcript {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  min-height: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.transcript__empty {
+  margin: auto;
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.transcript__entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 90%;
+}
+
+.transcript__entry--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.transcript__entry--assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.transcript__role {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.transcript__text {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.transcript__entry--user .transcript__text {
+  background: var(--accent-red);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.transcript__entry--assistant .transcript__text {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.status-panel {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  padding: 0.4rem 0.9rem;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-row:last-child {
+  border-bottom: none;
+}
+
+.status-row__labels {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.status-row__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-row__detail {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+.status-row__text {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot--ok {
+  background: var(--ok);
+  box-shadow: 0 0 8px 1px var(--ok);
+}
+
+.status-dot--error {
+  background: var(--error);
+  box-shadow: 0 0 8px 1px var(--error);
+}
+
+.status-dot--unknown {
+  background: var(--unknown);
+}
+
+.page__footer {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.2rem;
+  padding-top: 1.5rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 1.5rem 1rem 1rem;
+  }
+
+  .mic-button {
+    width: 80px;
+    height: 80px;
+    font-size: 1.9rem;
+  }
+
+  .page__footer {
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+}
