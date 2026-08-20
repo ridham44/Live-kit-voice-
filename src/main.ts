@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { createAgent } from './agent.ts';
 import { AGENT_NAME } from './agentName.ts';
+import { getKnowledgeChunks } from './knowledge/loadDocuments.ts';
 import { statusBus } from './status/statusBus.ts';
 
 // Load environment variables from a local file.
@@ -13,6 +14,13 @@ import { statusBus } from './status/statusBus.ts';
 dotenv.config({ path: '.env.local' });
 
 export default defineAgent({
+  // Runs once when the job process starts, before it's marked ready to take a job — the ideal
+  // place to pay PDF-parsing cost up front (or read the on-disk cache, near-instant after the
+  // first run) instead of on the first tool call mid-conversation, competing with live audio.
+  prewarm: async () => {
+    const chunks = await getKnowledgeChunks();
+    console.log(`[main] knowledge base ready: ${chunks.length} chunks`);
+  },
   entry: async (ctx) => {
     // Set up a voice AI pipeline using AssemblyAI, Fish Audio, and the LiveKit turn detector
     const session = new voice.AgentSession({
